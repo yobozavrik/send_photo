@@ -10,11 +10,17 @@ const PORT = process.env.PORT || 3000;
 
 // Настройка multer для обработки загруженных файлов
 const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
+    destination: async function (req, file, cb) {
         // Создаем временную папку, если её нет
         const uploadDir = path.join(__dirname, 'uploads');
-        if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir, { recursive: true });
+        try {
+            await fs.promises.access(uploadDir);
+        } catch {
+            try {
+                await fs.promises.mkdir(uploadDir, { recursive: true });
+            } catch (err) {
+                return cb(err);
+            }
         }
         cb(null, uploadDir);
     },
@@ -52,12 +58,14 @@ async function initializeGoogleDrive() {
     try {
         // Проверяем наличие файла с учетными данными
         const credentialsPath = path.join(__dirname, 'credentials.json');
-        if (!fs.existsSync(credentialsPath)) {
+        try {
+            await fs.promises.access(credentialsPath);
+        } catch {
             throw new Error('Файл credentials.json не найден! Создайте Service Account и скачайте JSON-ключ.');
         }
 
         // Загружаем учетные данные
-        const credentials = JSON.parse(fs.readFileSync(credentialsPath, 'utf8'));
+        const credentials = JSON.parse(await fs.promises.readFile(credentialsPath, 'utf8'));
         
         // Создаем JWT клиент для аутентификации
         const auth = new google.auth.JWT(
@@ -124,12 +132,11 @@ async function uploadToGoogleDrive(filePath, originalName) {
 }
 
 // Функция для очистки временных файлов
-function cleanupTempFile(filePath) {
+async function cleanupTempFile(filePath) {
     try {
-        if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-            console.log('Временный файл удален:', filePath);
-        }
+        await fs.promises.access(filePath);
+        await fs.promises.unlink(filePath);
+        console.log('Временный файл удален:', filePath);
     } catch (error) {
         console.error('Ошибка при удалении временного файла:', error);
     }
@@ -159,7 +166,7 @@ app.post('/upload', upload.single('image'), async (req, res) => {
         );
 
         // Удаляем временный файл
-        cleanupTempFile(req.file.path);
+        await cleanupTempFile(req.file.path);
 
         console.log('✅ Файл успешно загружен в Google Drive:', uploadResult.fileName);
 
@@ -177,7 +184,7 @@ app.post('/upload', upload.single('image'), async (req, res) => {
 
         // Удаляем временный файл в случае ошибки
         if (req.file) {
-            cleanupTempFile(req.file.path);
+            await cleanupTempFile(req.file.path);
         }
 
         res.status(500).json({
