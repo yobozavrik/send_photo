@@ -161,7 +161,7 @@ send-photo-drive/
 
 - **Backend:** Node.js, Express.js
 - **File Upload:** Multer
-- **Google Drive API:** googleapis
+ - **Google Drive API:** @googleapis/drive, google-auth-library
 - **Frontend:** HTML5, CSS3, JavaScript (vanilla)
 - **Environment:** dotenv
 

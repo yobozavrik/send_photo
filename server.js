@@ -1,6 +1,7 @@
 const express = require('express');
 const multer = require('multer');
-const { google } = require('googleapis');
+const {GoogleAuth} = require('google-auth-library');
+const {drive: driveApi} = require('@googleapis/drive');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -64,19 +65,17 @@ async function initializeGoogleDrive() {
             credentials = JSON.parse(fs.readFileSync(credentialsPath, 'utf8'));
         }
         
-        // Создаем JWT клиент для аутентификации
-        const auth = new google.auth.JWT(
-            credentials.client_email,
-            null,
-            credentials.private_key,
-            ['https://www.googleapis.com/auth/drive.file']
-        );
+        // Создаем клиент аутентификации
+        const auth = new GoogleAuth({
+            credentials,
+            scopes: ['https://www.googleapis.com/auth/drive.file']
+        });
 
         // Создаем экземпляр Google Drive API
-        drive = google.drive({ version: 'v3', auth });
+        drive = driveApi({version: 'v3', auth});
 
         // Проверяем подключение
-        await auth.authorize();
+        await auth.getClient();
         console.log('✅ Google Drive API успешно инициализирован');
         
         // Проверяем доступ к папке
