@@ -49,6 +49,7 @@ const upload = multer({
 // Инициализация Google Drive API
 let drive;
 let initPromise;
+let initError;
 
 async function initializeGoogleDrive() {
     try {
@@ -93,7 +94,7 @@ async function initializeGoogleDrive() {
 
     } catch (error) {
         console.error('❌ Ошибка инициализации Google Drive API:', error.message);
-        process.exit(1);
+        throw error;
     }
 }
 
@@ -140,7 +141,12 @@ function cleanupTempFile(filePath) {
     }
 }
 
-initPromise = initializeGoogleDrive();
+initPromise = initializeGoogleDrive().catch(err => {
+    initError = err;
+    if (process.env.VERCEL !== '1') {
+        throw err;
+    }
+});
 
 // Маршрут для главной страницы
 app.get('/', (req, res) => {
@@ -151,10 +157,15 @@ app.get('/', (req, res) => {
 app.post('/upload', upload.single('image'), async (req, res) => {
     try {
         await initPromise;
+        if (initError) {
+            return res.status(500).json({
+                error: `Google Drive API не инициализирован: ${initError.message}`
+            });
+        }
         // Проверяем, что файл был загружен
         if (!req.file) {
-            return res.status(400).json({ 
-                error: 'Файл не был загружен' 
+            return res.status(400).json({
+                error: 'Файл не был загружен'
             });
         }
 
