@@ -93,7 +93,7 @@ async function initializeGoogleDrive() {
 }
 
 // Функция для загрузки файла в Google Drive
-async function uploadToGoogleDrive(filePath, originalName) {
+async function uploadToGoogleDrive(filePath, originalName, mimeType) {
     try {
         const fileMetadata = {
             name: originalName, // Сохраняем оригинальное имя файла
@@ -101,7 +101,7 @@ async function uploadToGoogleDrive(filePath, originalName) {
         };
 
         const media = {
-            mimeType: 'image/*',
+            mimeType: mimeType,
             body: fs.createReadStream(filePath)
         };
 
@@ -154,8 +154,9 @@ app.post('/upload', upload.single('image'), async (req, res) => {
 
         // Загружаем файл в Google Drive
         const uploadResult = await uploadToGoogleDrive(
-            req.file.path, 
-            req.file.originalname
+            req.file.path,
+            req.file.originalname,
+            req.file.mimetype
         );
 
         // Удаляем временный файл
