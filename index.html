@@ -274,19 +274,21 @@
                 const formData = new FormData();
                 formData.append('image', file);
 
-                const response = await fetch('/upload', {
+                const response = await fetch('/api/upload', {
                     method: 'POST',
                     body: formData
                 });
 
-                const data = await response.json();
+                const contentType = response.headers.get('content-type') || '';
 
-                if (response.ok) {
+                if (response.ok && contentType.includes('application/json')) {
+                    const data = await response.json();
                     showResult(`✅ Файл успешно загружен! ID: ${data.fileId}`, 'success');
                     form.reset();
                     selectedFile.style.display = 'none';
                 } else {
-                    showResult(`❌ Ошибка: ${data.error}`, 'error');
+                    const errorText = await response.text();
+                    showResult(`❌ Ошибка: ${errorText || 'Неизвестная ошибка'}`, 'error');
                 }
             } catch (error) {
                 showResult(`❌ Ошибка сети: ${error.message}`, 'error');
