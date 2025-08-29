@@ -279,14 +279,21 @@
                     body: formData
                 });
 
-                const data = await response.json();
+                const contentType = response.headers.get('content-type') || '';
+                let data;
+                if (contentType.includes('application/json')) {
+                    data = await response.json();
+                } else {
+                    const text = await response.text();
+                    throw new Error(text || 'Сервер вернул неожиданный ответ');
+                }
 
                 if (response.ok) {
                     showResult(`✅ Файл успешно загружен! ID: ${data.fileId}`, 'success');
                     form.reset();
                     selectedFile.style.display = 'none';
                 } else {
-                    showResult(`❌ Ошибка: ${data.error}`, 'error');
+                    showResult(`❌ Ошибка: ${data.error || 'Неизвестная ошибка'}`, 'error');
                 }
             } catch (error) {
                 showResult(`❌ Ошибка сети: ${error.message}`, 'error');
