@@ -93,16 +93,16 @@ async function initializeGoogleDrive() {
 }
 
 // Функция для загрузки файла в Google Drive
-async function uploadToGoogleDrive(filePath, originalName) {
+async function uploadToGoogleDrive(file) {
     try {
         const fileMetadata = {
-            name: originalName, // Сохраняем оригинальное имя файла
+            name: file.originalname, // Сохраняем оригинальное имя файла
             parents: process.env.FOLDER_ID ? [process.env.FOLDER_ID] : undefined
         };
 
         const media = {
-            mimeType: 'image/*',
-            body: fs.createReadStream(filePath)
+            mimeType: file.mimetype,
+            body: fs.createReadStream(file.path)
         };
 
         const response = await drive.files.create({
@@ -153,10 +153,7 @@ app.post('/upload', upload.single('image'), async (req, res) => {
         console.log('📁 Получен файл:', req.file.originalname);
 
         // Загружаем файл в Google Drive
-        const uploadResult = await uploadToGoogleDrive(
-            req.file.path, 
-            req.file.originalname
-        );
+        const uploadResult = await uploadToGoogleDrive(req.file);
 
         // Удаляем временный файл
         cleanupTempFile(req.file.path);
