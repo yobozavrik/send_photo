@@ -3,6 +3,7 @@ const multer = require('multer');
 const { google } = require('googleapis');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 require('dotenv').config();
 
 const app = express();
@@ -135,6 +136,36 @@ function cleanupTempFile(filePath) {
     }
 }
 
+// Проверка данных Telegram WebApp
+function validateInitData(initData) {
+    try {
+        const params = new URLSearchParams(initData);
+        const hash = params.get('hash');
+        params.delete('hash');
+        const dataCheckString = Array.from(params.entries())
+            .sort((a, b) => a[0].localeCompare(b[0]))
+            .map(([key, value]) => `${key}=${value}`)
+            .join('\n');
+        const secretKey = crypto
+            .createHash('sha256')
+            .update(process.env.BOT_TOKEN || '')
+            .digest();
+        const hmac = crypto
+            .createHmac('sha256', secretKey)
+            .update(dataCheckString)
+            .digest('hex');
+        if (hmac !== hash) return null;
+        const data = {};
+        params.forEach((value, key) => {
+            data[key] = value;
+        });
+        return data;
+    } catch (error) {
+        console.error('Ошибка проверки initData:', error);
+        return null;
+    }
+}
+
 // Маршрут для главной страницы
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
@@ -162,6 +193,26 @@ app.post('/upload', upload.single('image'), async (req, res) => {
         cleanupTempFile(req.file.path);
 
         console.log('✅ Файл успешно загружен в Google Drive:', uploadResult.fileName);
+
+        // Отправляем уведомление в Telegram
+        if (req.body.initData && process.env.BOT_TOKEN) {
+            const data = validateInitData(req.body.initData);
+            if (data && data.user) {
+                try {
+                    const user = JSON.parse(data.user);
+                    await fetch(`https://api.telegram.org/bot${process.env.BOT_TOKEN}/sendMessage`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            chat_id: user.id,
+                            text: `Файл успешно загружен: ${uploadResult.webViewLink}`
+                        })
+                    });
+                } catch (err) {
+                    console.error('Ошибка отправки сообщения в Telegram:', err);
+                }
+            }
+        }
 
         // Отправляем успешный ответ
         res.json({

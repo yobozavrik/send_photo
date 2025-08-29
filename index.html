@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Загрузка изображений в Google Drive</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         * {
             margin: 0;
@@ -180,10 +181,10 @@
 
         <form class="upload-form" id="uploadForm">
             <div class="file-input-wrapper" id="fileWrapper">
-                <input type="file" 
-                       class="file-input" 
-                       id="fileInput" 
-                       accept="image/*" 
+                <input type="file"
+                       class="file-input"
+                       id="fileInput"
+                       accept="image/*"
                        required>
                 <label for="fileInput" class="file-input-label">
                     <svg viewBox="0 0 24 24">
@@ -193,6 +194,8 @@
                 </label>
                 <div class="selected-file" id="selectedFile" style="display: none;"></div>
             </div>
+
+            <input type="hidden" name="initData" id="initData">
 
             <button type="submit" class="upload-btn" id="uploadBtn">
                 Отправить изображение
@@ -215,6 +218,13 @@
         const uploadBtn = document.getElementById('uploadBtn');
         const loading = document.getElementById('loading');
         const result = document.getElementById('result');
+        const initDataInput = document.getElementById('initData');
+
+        const tg = window.Telegram ? window.Telegram.WebApp : null;
+        if (tg) {
+            tg.ready();
+            initDataInput.value = tg.initData;
+        }
 
         // Обработка выбора файла
         fileInput.addEventListener('change', function(e) {
@@ -285,6 +295,9 @@
                     showResult(`✅ Файл успешно загружен! ID: ${data.fileId}`, 'success');
                     form.reset();
                     selectedFile.style.display = 'none';
+                    if (tg) {
+                        tg.showAlert('Файл успешно загружен!', () => tg.close());
+                    }
                 } else {
                     showResult(`❌ Ошибка: ${data.error}`, 'error');
                 }
