@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Загрузка изображений в Google Drive</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         * {
             margin: 0;
@@ -208,6 +209,12 @@
     </div>
 
     <script>
+        const tg = window.Telegram ? window.Telegram.WebApp : null;
+        if (tg) {
+            tg.expand();
+            tg.ready();
+        }
+
         const form = document.getElementById('uploadForm');
         const fileInput = document.getElementById('fileInput');
         const fileWrapper = document.getElementById('fileWrapper');
@@ -285,6 +292,14 @@
                     showResult(`✅ Файл успешно загружен! ID: ${data.fileId}`, 'success');
                     form.reset();
                     selectedFile.style.display = 'none';
+                    if (tg) {
+                        tg.sendData(JSON.stringify({
+                            fileId: data.fileId,
+                            fileName: data.fileName,
+                            webViewLink: data.webViewLink
+                        }));
+                        tg.close();
+                    }
                 } else {
                     showResult(`❌ Ошибка: ${data.error}`, 'error');
                 }
