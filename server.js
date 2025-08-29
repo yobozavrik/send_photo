@@ -3,10 +3,9 @@ const multer = require('multer');
 const { google } = require('googleapis');
 const path = require('path');
 const fs = require('fs');
-require('dotenv').config();
+const { PORT, FOLDER_ID } = require('./config');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 
 // Настройка multer для обработки загруженных файлов
 const storage = multer.diskStorage({
@@ -75,15 +74,11 @@ async function initializeGoogleDrive() {
         console.log('✅ Google Drive API успешно инициализирован');
         
         // Проверяем доступ к папке
-        if (process.env.FOLDER_ID) {
-            try {
-                await drive.files.get({ fileId: process.env.FOLDER_ID });
-                console.log('✅ Доступ к папке Google Drive подтвержден');
-            } catch (error) {
-                console.warn('⚠️  Не удалось получить доступ к папке. Убедитесь, что сервисный аккаунт имеет права доступа.');
-            }
-        } else {
-            console.warn('⚠️  FOLDER_ID не указан в переменных окружения');
+        try {
+            await drive.files.get({ fileId: FOLDER_ID });
+            console.log('✅ Доступ к папке Google Drive подтвержден');
+        } catch (error) {
+            console.warn('⚠️  Не удалось получить доступ к папке. Убедитесь, что сервисный аккаунт имеет права доступа.');
         }
 
     } catch (error) {
@@ -97,7 +92,7 @@ async function uploadToGoogleDrive(filePath, originalName) {
     try {
         const fileMetadata = {
             name: originalName, // Сохраняем оригинальное имя файла
-            parents: process.env.FOLDER_ID ? [process.env.FOLDER_ID] : undefined
+            parents: FOLDER_ID ? [FOLDER_ID] : undefined
         };
 
         const media = {
@@ -238,7 +233,7 @@ async function startServer() {
         app.listen(PORT, () => {
             console.log(`🚀 Сервер запущен на порту ${PORT}`);
             console.log(`📱 Откройте http://localhost:${PORT} в браузере`);
-            console.log('📁 Папка для загрузки:', process.env.FOLDER_ID || 'Не указана');
+            console.log('📁 Папка для загрузки:', FOLDER_ID);
         });
 
     } catch (error) {
