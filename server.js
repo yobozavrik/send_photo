@@ -3,6 +3,7 @@ const multer = require('multer');
 const { google } = require('googleapis');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 require('dotenv').config();
 
 const app = express();
@@ -12,7 +13,7 @@ const PORT = process.env.PORT || 3000;
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
         // Создаем временную папку, если её нет
-        const uploadDir = path.join(__dirname, 'uploads');
+        const uploadDir = process.env.VERCEL ? os.tmpdir() : path.join(__dirname, 'uploads');
         if (!fs.existsSync(uploadDir)) {
             fs.mkdirSync(uploadDir, { recursive: true });
         }
@@ -47,17 +48,21 @@ const upload = multer({
 
 // Инициализация Google Drive API
 let drive;
+let initPromise;
 
 async function initializeGoogleDrive() {
     try {
-        // Проверяем наличие файла с учетными данными
-        const credentialsPath = path.join(__dirname, 'credentials.json');
-        if (!fs.existsSync(credentialsPath)) {
-            throw new Error('Файл credentials.json не найден! Создайте Service Account и скачайте JSON-ключ.');
-        }
-
         // Загружаем учетные данные
-        const credentials = JSON.parse(fs.readFileSync(credentialsPath, 'utf8'));
+        let credentials;
+        if (process.env.GOOGLE_CREDENTIALS) {
+            credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+        } else {
+            const credentialsPath = path.join(__dirname, 'credentials.json');
+            if (!fs.existsSync(credentialsPath)) {
+                throw new Error('Файл credentials.json не найден! Создайте Service Account и скачайте JSON-ключ.');
+            }
+            credentials = JSON.parse(fs.readFileSync(credentialsPath, 'utf8'));
+        }
         
         // Создаем JWT клиент для аутентификации
         const auth = new google.auth.JWT(
@@ -135,6 +140,8 @@ function cleanupTempFile(filePath) {
     }
 }
 
+initPromise = initializeGoogleDrive();
+
 // Маршрут для главной страницы
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
@@ -143,6 +150,7 @@ app.get('/', (req, res) => {
 // Маршрут для загрузки файлов
 app.post('/upload', upload.single('image'), async (req, res) => {
     try {
+        await initPromise;
         // Проверяем, что файл был загружен
         if (!req.file) {
             return res.status(400).json({ 
@@ -228,35 +236,27 @@ app.use((error, req, res, next) => {
     });
 });
 
-// Запуск сервера
-async function startServer() {
-    try {
-        // Инициализируем Google Drive API
-        await initializeGoogleDrive();
-
-        // Запускаем сервер
+if (process.env.VERCEL !== '1') {
+    initPromise.then(() => {
         app.listen(PORT, () => {
             console.log(`🚀 Сервер запущен на порту ${PORT}`);
             console.log(`📱 Откройте http://localhost:${PORT} в браузере`);
             console.log('📁 Папка для загрузки:', process.env.FOLDER_ID || 'Не указана');
         });
-
-    } catch (error) {
+    }).catch(error => {
         console.error('❌ Ошибка запуска сервера:', error);
         process.exit(1);
-    }
+    });
+
+    process.on('SIGINT', () => {
+        console.log('\n🛑 Сервер остановлен');
+        process.exit(0);
+    });
+
+    process.on('SIGTERM', () => {
+        console.log('\n🛑 Сервер остановлен');
+        process.exit(0);
+    });
 }
 
-// Обработка сигналов завершения
-process.on('SIGINT', () => {
-    console.log('\n🛑 Сервер остановлен');
-    process.exit(0);
-});
-
-process.on('SIGTERM', () => {
-    console.log('\n🛑 Сервер остановлен');
-    process.exit(0);
-});
-
-// Запускаем сервер
-startServer();
+module.exports = app;
